@@ -17,7 +17,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use ext4_rs::{mkfs, Ext4Fs, MkfsOptions, OpenFlags, FileBlockDevice};
+//! use ext4_lwext4::{mkfs, Ext4Fs, MkfsOptions, OpenFlags, FileBlockDevice};
 //! use std::io::{Read, Write};
 //!
 //! // Create a disk image

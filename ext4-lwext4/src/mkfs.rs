@@ -93,7 +93,7 @@ impl MkfsOptions {
 ///
 /// # Example
 /// ```no_run
-/// use ext4_rs::{mkfs, MkfsOptions, MemoryBlockDevice};
+/// use ext4_lwext4::{mkfs, MkfsOptions, MemoryBlockDevice};
 ///
 /// let device = MemoryBlockDevice::new(100 * 1024 * 1024, 512);
 /// mkfs(device, &MkfsOptions::default()).unwrap();

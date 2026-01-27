@@ -1,10 +1,10 @@
-# ext4-rs
+# ext4-lwext4
 
 A safe Rust wrapper for ext2/3/4 filesystem operations based on [lwext4](https://github.com/gkostka/lwext4).
 
-[![Crates.io](https://img.shields.io/crates/v/ext4-rs.svg)](https://crates.io/crates/ext4-rs)
-[![Documentation](https://docs.rs/ext4-rs/badge.svg)](https://docs.rs/ext4-rs)
-[![License](https://img.shields.io/crates/l/ext4-rs.svg)](LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/ext4-lwext4.svg)](https://crates.io/crates/ext4-lwext4)
+[![Documentation](https://docs.rs/ext4-lwext4/badge.svg)](https://docs.rs/ext4-lwext4)
+[![License](https://img.shields.io/crates/l/ext4-lwext4.svg)](LICENSE)
 
 ## Features
 
@@ -23,13 +23,13 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ext4-rs = "0.1"
+ext4-lwext4 = "0.1"
 ```
 
 ## Quick Start
 
 ```rust
-use ext4_rs::{mkfs, Ext4Fs, MkfsOptions, OpenFlags, FileBlockDevice};
+use ext4_lwext4::{mkfs, Ext4Fs, MkfsOptions, OpenFlags, FileBlockDevice};
 use std::io::{Read, Write};
 
 // Create a 100MB disk image
@@ -81,7 +81,7 @@ The crate provides several block device implementations:
 You can implement the `BlockDevice` trait for custom storage backends:
 
 ```rust
-use ext4_rs::BlockDevice;
+use ext4_lwext4::BlockDevice;
 
 pub trait BlockDevice: Send {
     fn block_size(&self) -> u32;
@@ -94,7 +94,7 @@ pub trait BlockDevice: Send {
 ## Filesystem Types
 
 ```rust
-use ext4_rs::MkfsOptions;
+use ext4_lwext4::MkfsOptions;
 
 // ext2 (no journaling)
 let opts = MkfsOptions::ext2();
@@ -219,8 +219,8 @@ This crate excludes GPL-licensed files by default to maintain permissive licensi
 
 ```bash
 # Clone with submodules
-git clone --recursive https://github.com/arcbox-labs/ext4-rs
-cd ext4-rs
+git clone --recursive https://github.com/arcbox-labs/ext4-lwext4
+cd ext4-lwext4
 
 # Build (default, no GPL)
 cargo build

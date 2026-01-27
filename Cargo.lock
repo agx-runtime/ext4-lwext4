@@ -35,14 +35,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ext4-lwext4-sys"
-version = "0.1.0"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "ext4-rs"
+name = "ext4-lwext4"
 version = "0.1.0"
 dependencies = [
  "bitflags",
@@ -50,6 +43,13 @@ dependencies = [
  "libc",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "ext4-lwext4-sys"
+version = "0.1.0"
+dependencies = [
+ "cc",
 ]
 
 [[package]]

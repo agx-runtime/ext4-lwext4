@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["ext4-lwext4-sys", "ext4-rs"]
+members = ["ext4-lwext4-sys", "ext4-lwext4"]
 
 [workspace.package]
 version = "0.1.0"
@@ -9,6 +9,6 @@ authors = ["AprilNEA <dev@aprilnea.me>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/arcbox-labs/ext4-rs"
 homepage = "https://github.com/arcbox-labs/ext4-rs"
-documentation = "https://docs.rs/ext4-rs"
+documentation = "https://docs.rs/ext4-lwext4"
 readme = "README.md"
 rust-version = "1.90"

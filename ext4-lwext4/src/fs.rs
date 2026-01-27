@@ -27,7 +27,7 @@ static DEVICE_COUNTER: AtomicU64 = AtomicU64::new(0);
 ///
 /// # Example
 /// ```no_run
-/// use ext4_rs::{Ext4Fs, FileBlockDevice, OpenFlags};
+/// use ext4_lwext4::{Ext4Fs, FileBlockDevice, OpenFlags};
 ///
 /// // Open a disk image and mount
 /// let device = FileBlockDevice::open("disk.img").unwrap();
