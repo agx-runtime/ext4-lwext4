@@ -25,3 +25,8 @@ tempfile = "3.0"
 [features]
 default = ["std"]
 std = []
+
+# GPL-licensed features (passed through to lwext4-sys)
+gpl-xattr = ["lwext4-sys/gpl-xattr"]
+gpl-extents = ["lwext4-sys/gpl-extents"]
+gpl = ["lwext4-sys/gpl"]

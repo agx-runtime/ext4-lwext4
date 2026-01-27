@@ -1,11 +1,12 @@
+use std::env;
 use std::path::PathBuf;
 
 fn main() {
     let lwext4_src = PathBuf::from("vendor/lwext4/src");
     let lwext4_inc = PathBuf::from("vendor/lwext4/include");
 
-    // Core source files
-    let sources = [
+    // Core source files (BSD-3-Clause / MIT OR Apache-2.0 compatible)
+    let mut sources = vec![
         "ext4.c",
         "ext4_balloc.c",
         "ext4_bcache.c",
@@ -16,7 +17,6 @@ fn main() {
         "ext4_debug.c",
         "ext4_dir.c",
         "ext4_dir_idx.c",
-        "ext4_extent.c",
         "ext4_fs.c",
         "ext4_hash.c",
         "ext4_ialloc.c",
@@ -25,8 +25,15 @@ fn main() {
         "ext4_mkfs.c",
         "ext4_super.c",
         "ext4_trans.c",
-        "ext4_xattr.c",
     ];
+
+    // GPL-2.0 licensed files - only included with explicit feature flags
+    if env::var("CARGO_FEATURE_GPL_EXTENTS").is_ok() {
+        sources.push("ext4_extent.c");
+    }
+    if env::var("CARGO_FEATURE_GPL_XATTR").is_ok() {
+        sources.push("ext4_xattr.c");
+    }
 
     let mut build = cc::Build::new();
 
