@@ -1,0 +1,50 @@
+use std::path::PathBuf;
+
+fn main() {
+    let lwext4_src = PathBuf::from("vendor/lwext4/src");
+    let lwext4_inc = PathBuf::from("vendor/lwext4/include");
+
+    // Core source files
+    let sources = [
+        "ext4.c",
+        "ext4_balloc.c",
+        "ext4_bcache.c",
+        "ext4_bitmap.c",
+        "ext4_block_group.c",
+        "ext4_blockdev.c",
+        "ext4_crc32.c",
+        "ext4_debug.c",
+        "ext4_dir.c",
+        "ext4_dir_idx.c",
+        "ext4_extent.c",
+        "ext4_fs.c",
+        "ext4_hash.c",
+        "ext4_ialloc.c",
+        "ext4_inode.c",
+        "ext4_journal.c",
+        "ext4_mkfs.c",
+        "ext4_super.c",
+        "ext4_trans.c",
+        "ext4_xattr.c",
+    ];
+
+    let mut build = cc::Build::new();
+
+    for src in &sources {
+        build.file(lwext4_src.join(src));
+    }
+
+    build
+        .include(&lwext4_inc)
+        .include(lwext4_inc.join("misc"))
+        .define("CONFIG_USE_DEFAULT_CFG", "1")
+        .define("CONFIG_HAVE_OWN_OFLAGS", "1")
+        .flag_if_supported("-std=c99")
+        .flag_if_supported("-Wno-unused-parameter")
+        .flag_if_supported("-Wno-sign-compare")
+        .warnings(false)
+        .compile("lwext4");
+
+    println!("cargo:rerun-if-changed=vendor/lwext4/src");
+    println!("cargo:rerun-if-changed=vendor/lwext4/include");
+}
