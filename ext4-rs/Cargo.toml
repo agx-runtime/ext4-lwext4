@@ -1,9 +1,15 @@
 [package]
 name = "ext4-rs"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 description = "A safe Rust wrapper for ext2/3/4 filesystem operations based on lwext4"
-license = "BSD-3-Clause"
 keywords = ["ext4", "ext3", "ext2", "filesystem", "embedded"]
 categories = ["filesystem", "no-std"]
 

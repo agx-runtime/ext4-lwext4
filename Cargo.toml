@@ -1,3 +1,14 @@
 [workspace]
 resolver = "2"
 members = ["lwext4-sys", "ext4-rs"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+authors = ["Xuan <xuan@arcbox.dev>"]
+repository = "https://github.com/arcbox-labs/ext4-rs"
+homepage = "https://github.com/arcbox-labs/ext4-rs"
+documentation = "https://docs.rs/ext4-rs"
+readme = "README.md"
+rust-version = "1.90"

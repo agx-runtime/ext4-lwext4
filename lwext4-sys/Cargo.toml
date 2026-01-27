@@ -1,9 +1,15 @@
 [package]
 name = "lwext4-sys"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme.workspace = true
+rust-version.workspace = true
 description = "FFI bindings to lwext4 - a lightweight ext2/3/4 filesystem implementation"
-license = "BSD-3-Clause"
+keywords = ["ext4", "ext3", "ext2", "ffi", "lwext4"]
+categories = ["external-ffi-bindings", "filesystem"]
 links = "lwext4"
 
 [build-dependencies]

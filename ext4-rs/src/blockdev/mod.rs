@@ -117,7 +117,7 @@ impl BlockDeviceWrapper {
     /// Caller must ensure no concurrent access to the device.
     #[allow(dead_code)]
     pub(crate) unsafe fn device_mut(&self) -> &mut dyn BlockDevice {
-        (*self.device.get()).as_mut()
+        unsafe { (*self.device.get()).as_mut() }
     }
 }
 
@@ -127,22 +127,26 @@ impl BlockDeviceWrapper {
 
 /// Get the BlockDeviceWrapper from a blockdev pointer
 unsafe fn get_wrapper(bdev: *mut ext4_blockdev) -> &'static BlockDeviceWrapper {
-    let bdif = (*bdev).bdif;
-    let wrapper_ptr = (*bdif).p_user as *const BlockDeviceWrapper;
-    &*wrapper_ptr
+    unsafe {
+        let bdif = (*bdev).bdif;
+        let wrapper_ptr = (*bdif).p_user as *const BlockDeviceWrapper;
+        &*wrapper_ptr
+    }
 }
 
 /// Open callback
 unsafe extern "C" fn blockdev_open(bdev: *mut ext4_blockdev) -> c_int {
-    let wrapper = get_wrapper(bdev);
-    let device = (*wrapper.device.get()).as_mut();
+    unsafe {
+        let wrapper = get_wrapper(bdev);
+        let device = (*wrapper.device.get()).as_mut();
 
-    match device.open() {
-        Ok(()) => 0,
-        Err(e) => match e {
-            Error::Io(io) => io.raw_os_error().unwrap_or(libc::EIO),
-            _ => libc::EIO,
-        },
+        match device.open() {
+            Ok(()) => 0,
+            Err(e) => match e {
+                Error::Io(io) => io.raw_os_error().unwrap_or(libc::EIO),
+                _ => libc::EIO,
+            },
+        }
     }
 }
 
@@ -153,19 +157,21 @@ unsafe extern "C" fn blockdev_bread(
     blk_id: u64,
     blk_cnt: u32,
 ) -> c_int {
-    let wrapper = get_wrapper(bdev);
-    let device = (*wrapper.device.get()).as_ref();
-    let block_size = device.block_size() as usize;
-    let total_size = block_size * blk_cnt as usize;
+    unsafe {
+        let wrapper = get_wrapper(bdev);
+        let device = (*wrapper.device.get()).as_ref();
+        let block_size = device.block_size() as usize;
+        let total_size = block_size * blk_cnt as usize;
 
-    let slice = std::slice::from_raw_parts_mut(buf as *mut u8, total_size);
+        let slice = std::slice::from_raw_parts_mut(buf as *mut u8, total_size);
 
-    match device.read_blocks(blk_id, slice) {
-        Ok(_) => 0,
-        Err(e) => match e {
-            Error::Io(io) => io.raw_os_error().unwrap_or(libc::EIO),
-            _ => libc::EIO,
-        },
+        match device.read_blocks(blk_id, slice) {
+            Ok(_) => 0,
+            Err(e) => match e {
+                Error::Io(io) => io.raw_os_error().unwrap_or(libc::EIO),
+                _ => libc::EIO,
+            },
+        }
     }
 }
 
@@ -176,33 +182,37 @@ unsafe extern "C" fn blockdev_bwrite(
     blk_id: u64,
     blk_cnt: u32,
 ) -> c_int {
-    let wrapper = get_wrapper(bdev);
-    let device = (*wrapper.device.get()).as_mut();
-    let block_size = device.block_size() as usize;
-    let total_size = block_size * blk_cnt as usize;
+    unsafe {
+        let wrapper = get_wrapper(bdev);
+        let device = (*wrapper.device.get()).as_mut();
+        let block_size = device.block_size() as usize;
+        let total_size = block_size * blk_cnt as usize;
 
-    let slice = std::slice::from_raw_parts(buf as *const u8, total_size);
+        let slice = std::slice::from_raw_parts(buf as *const u8, total_size);
 
-    match device.write_blocks(blk_id, slice) {
-        Ok(_) => 0,
-        Err(e) => match e {
-            Error::Io(io) => io.raw_os_error().unwrap_or(libc::EIO),
-            _ => libc::EIO,
-        },
+        match device.write_blocks(blk_id, slice) {
+            Ok(_) => 0,
+            Err(e) => match e {
+                Error::Io(io) => io.raw_os_error().unwrap_or(libc::EIO),
+                _ => libc::EIO,
+            },
+        }
     }
 }
 
 /// Close callback
 unsafe extern "C" fn blockdev_close(bdev: *mut ext4_blockdev) -> c_int {
-    let wrapper = get_wrapper(bdev);
-    let device = (*wrapper.device.get()).as_mut();
+    unsafe {
+        let wrapper = get_wrapper(bdev);
+        let device = (*wrapper.device.get()).as_mut();
 
-    match device.close() {
-        Ok(()) => 0,
-        Err(e) => match e {
-            Error::Io(io) => io.raw_os_error().unwrap_or(libc::EIO),
-            _ => libc::EIO,
-        },
+        match device.close() {
+            Ok(()) => 0,
+            Err(e) => match e {
+                Error::Io(io) => io.raw_os_error().unwrap_or(libc::EIO),
+                _ => libc::EIO,
+            },
+        }
     }
 }
 
