@@ -3,7 +3,7 @@
 use crate::error::{check_errno_with_path, Result};
 use crate::fs::Ext4Fs;
 use crate::types::FileType;
-use lwext4_sys::{ext4_dir, ext4_dir_close, ext4_dir_entry_next, ext4_dir_entry_rewind, ext4_dir_open};
+use ext4_lwext4_sys::{ext4_dir, ext4_dir_close, ext4_dir_entry_next, ext4_dir_entry_rewind, ext4_dir_open};
 
 /// A directory handle for iterating over entries.
 ///

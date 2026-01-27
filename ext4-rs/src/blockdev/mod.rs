@@ -12,7 +12,7 @@ pub use memory::MemoryBlockDevice;
 pub use traits::{BlockDevice, BlockDeviceExt};
 
 use crate::error::Error;
-use lwext4_sys::{ext4_blockdev, ext4_blockdev_iface};
+use ext4_lwext4_sys::{ext4_blockdev, ext4_blockdev_iface};
 use std::ffi::c_void;
 use std::os::raw::c_int;
 use std::pin::Pin;

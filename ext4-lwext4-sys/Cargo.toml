@@ -1,5 +1,5 @@
 [package]
-name = "lwext4-sys"
+name = "ext4-lwext4-sys"
 version.workspace = true
 edition.workspace = true
 license.workspace =  true

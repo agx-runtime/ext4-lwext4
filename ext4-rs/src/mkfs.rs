@@ -3,7 +3,7 @@
 use crate::blockdev::{BlockDevice, BlockDeviceWrapper};
 use crate::error::{check_errno, Result};
 use crate::types::FsType;
-use lwext4_sys::{ext4_fs, ext4_mkfs, ext4_mkfs_info, UUID_SIZE};
+use ext4_lwext4_sys::{ext4_fs, ext4_mkfs, ext4_mkfs_info, UUID_SIZE};
 use std::ffi::CString;
 use std::ptr;
 

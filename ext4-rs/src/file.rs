@@ -3,7 +3,7 @@
 use crate::error::{check_errno, check_errno_with_path, Error, Result};
 use crate::fs::Ext4Fs;
 use crate::types::{Metadata, OpenFlags, SeekFrom};
-use lwext4_sys::{
+use ext4_lwext4_sys::{
     ext4_fclose, ext4_file, ext4_fopen2, ext4_fread, ext4_fseek, ext4_fsize, ext4_ftell,
     ext4_ftruncate, ext4_fwrite,
 };

@@ -1,7 +1,7 @@
 //! Common types used throughout ext4-rs.
 
 use bitflags::bitflags;
-use lwext4_sys;
+use ext4_lwext4_sys;
 
 /// Filesystem type for creation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -19,9 +19,9 @@ impl FsType {
     /// Convert to lwext4 filesystem type constant
     pub(crate) fn to_raw(self) -> i32 {
         match self {
-            FsType::Ext2 => lwext4_sys::F_SET_EXT2,
-            FsType::Ext3 => lwext4_sys::F_SET_EXT3,
-            FsType::Ext4 => lwext4_sys::F_SET_EXT4,
+            FsType::Ext2 => ext4_lwext4_sys::F_SET_EXT2,
+            FsType::Ext3 => ext4_lwext4_sys::F_SET_EXT3,
+            FsType::Ext4 => ext4_lwext4_sys::F_SET_EXT4,
         }
     }
 }
@@ -51,13 +51,13 @@ impl FileType {
     /// Convert from lwext4 directory entry type
     pub(crate) fn from_raw(raw: u8) -> Self {
         match raw {
-            lwext4_sys::EXT4_DE_REG_FILE => FileType::RegularFile,
-            lwext4_sys::EXT4_DE_DIR => FileType::Directory,
-            lwext4_sys::EXT4_DE_SYMLINK => FileType::Symlink,
-            lwext4_sys::EXT4_DE_BLKDEV => FileType::BlockDevice,
-            lwext4_sys::EXT4_DE_CHRDEV => FileType::CharDevice,
-            lwext4_sys::EXT4_DE_FIFO => FileType::Fifo,
-            lwext4_sys::EXT4_DE_SOCK => FileType::Socket,
+            ext4_lwext4_sys::EXT4_DE_REG_FILE => FileType::RegularFile,
+            ext4_lwext4_sys::EXT4_DE_DIR => FileType::Directory,
+            ext4_lwext4_sys::EXT4_DE_SYMLINK => FileType::Symlink,
+            ext4_lwext4_sys::EXT4_DE_BLKDEV => FileType::BlockDevice,
+            ext4_lwext4_sys::EXT4_DE_CHRDEV => FileType::CharDevice,
+            ext4_lwext4_sys::EXT4_DE_FIFO => FileType::Fifo,
+            ext4_lwext4_sys::EXT4_DE_SOCK => FileType::Socket,
             _ => FileType::Unknown,
         }
     }
@@ -65,14 +65,14 @@ impl FileType {
     /// Convert to lwext4 directory entry type
     pub(crate) fn to_raw(self) -> u8 {
         match self {
-            FileType::RegularFile => lwext4_sys::EXT4_DE_REG_FILE,
-            FileType::Directory => lwext4_sys::EXT4_DE_DIR,
-            FileType::Symlink => lwext4_sys::EXT4_DE_SYMLINK,
-            FileType::BlockDevice => lwext4_sys::EXT4_DE_BLKDEV,
-            FileType::CharDevice => lwext4_sys::EXT4_DE_CHRDEV,
-            FileType::Fifo => lwext4_sys::EXT4_DE_FIFO,
-            FileType::Socket => lwext4_sys::EXT4_DE_SOCK,
-            FileType::Unknown => lwext4_sys::EXT4_DE_UNKNOWN,
+            FileType::RegularFile => ext4_lwext4_sys::EXT4_DE_REG_FILE,
+            FileType::Directory => ext4_lwext4_sys::EXT4_DE_DIR,
+            FileType::Symlink => ext4_lwext4_sys::EXT4_DE_SYMLINK,
+            FileType::BlockDevice => ext4_lwext4_sys::EXT4_DE_BLKDEV,
+            FileType::CharDevice => ext4_lwext4_sys::EXT4_DE_CHRDEV,
+            FileType::Fifo => ext4_lwext4_sys::EXT4_DE_FIFO,
+            FileType::Socket => ext4_lwext4_sys::EXT4_DE_SOCK,
+            FileType::Unknown => ext4_lwext4_sys::EXT4_DE_UNKNOWN,
         }
     }
 
@@ -117,24 +117,24 @@ impl OpenFlags {
         let mut flags = 0i32;
 
         if self.contains(OpenFlags::READ) && self.contains(OpenFlags::WRITE) {
-            flags |= lwext4_sys::O_RDWR;
+            flags |= ext4_lwext4_sys::O_RDWR;
         } else if self.contains(OpenFlags::WRITE) {
-            flags |= lwext4_sys::O_WRONLY;
+            flags |= ext4_lwext4_sys::O_WRONLY;
         } else {
-            flags |= lwext4_sys::O_RDONLY;
+            flags |= ext4_lwext4_sys::O_RDONLY;
         }
 
         if self.contains(OpenFlags::CREATE) {
-            flags |= lwext4_sys::O_CREAT;
+            flags |= ext4_lwext4_sys::O_CREAT;
         }
         if self.contains(OpenFlags::TRUNCATE) {
-            flags |= lwext4_sys::O_TRUNC;
+            flags |= ext4_lwext4_sys::O_TRUNC;
         }
         if self.contains(OpenFlags::APPEND) {
-            flags |= lwext4_sys::O_APPEND;
+            flags |= ext4_lwext4_sys::O_APPEND;
         }
         if self.contains(OpenFlags::EXCLUSIVE) {
-            flags |= lwext4_sys::O_EXCL;
+            flags |= ext4_lwext4_sys::O_EXCL;
         }
 
         flags
@@ -156,9 +156,9 @@ impl SeekFrom {
     /// Convert to lwext4 seek origin and offset
     pub(crate) fn to_raw(self) -> (i64, u32) {
         match self {
-            SeekFrom::Start(pos) => (pos as i64, lwext4_sys::SEEK_SET),
-            SeekFrom::End(pos) => (pos, lwext4_sys::SEEK_END),
-            SeekFrom::Current(pos) => (pos, lwext4_sys::SEEK_CUR),
+            SeekFrom::Start(pos) => (pos as i64, ext4_lwext4_sys::SEEK_SET),
+            SeekFrom::End(pos) => (pos, ext4_lwext4_sys::SEEK_END),
+            SeekFrom::Current(pos) => (pos, ext4_lwext4_sys::SEEK_CUR),
         }
     }
 }

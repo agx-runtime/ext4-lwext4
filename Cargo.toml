@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["lwext4-sys", "ext4-rs"]
+members = ["ext4-lwext4-sys", "ext4-rs"]
 
 [workspace.package]
 version = "0.1.0"

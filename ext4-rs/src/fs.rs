@@ -5,7 +5,7 @@ use crate::dir::Dir;
 use crate::error::{check_errno, check_errno_with_path, Error, Result};
 use crate::file::File;
 use crate::types::{FileType, FsStats, Metadata, OpenFlags};
-use lwext4_sys::{
+use ext4_lwext4_sys::{
     ext4_atime_get, ext4_cache_flush, ext4_ctime_get, ext4_device_register, ext4_device_unregister,
     ext4_dir_mk, ext4_dir_rm, ext4_flink, ext4_fremove, ext4_frename, ext4_fsymlink,
     ext4_inode_exist, ext4_journal_start, ext4_journal_stop, ext4_mode_get, ext4_mode_set,
