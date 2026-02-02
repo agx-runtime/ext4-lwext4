@@ -45,7 +45,17 @@ fn main() {
         .include(&lwext4_inc)
         .include(lwext4_inc.join("misc"))
         .define("CONFIG_USE_DEFAULT_CFG", "1")
-        .define("CONFIG_HAVE_OWN_OFLAGS", "1")
+        .define("CONFIG_HAVE_OWN_OFLAGS", "1");
+
+    // Disable extent support at the C preprocessor level when the GPL feature
+    // is not enabled. Without this, ext4_fs.c compiles calls to extent functions
+    // (guarded by CONFIG_EXTENTS_ENABLE) but ext4_extent.c is not compiled,
+    // causing undefined symbol errors at link time.
+    if env::var("CARGO_FEATURE_GPL_EXTENTS").is_err() {
+        build.define("CONFIG_EXTENTS_ENABLE", "0");
+    }
+
+    build
         .flag_if_supported("-std=c99")
         .flag_if_supported("-Wno-unused-parameter")
         .flag_if_supported("-Wno-sign-compare")
