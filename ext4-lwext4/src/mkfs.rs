@@ -133,10 +133,15 @@ pub fn mkfs<B: BlockDevice + 'static>(device: B, options: &MkfsOptions) -> Resul
             .unwrap_or(ptr::null()),
     };
 
+    // Allocate a zeroed ext4_fs struct (opaque, size known only to C)
+    let fs_size = unsafe { ext4_lwext4_sys::lwext4_sizeof_ext4_fs() };
+    let fs_buf = vec![0u8; fs_size];
+    let fs_ptr = fs_buf.as_ptr() as *mut ext4_fs;
+
     // Call lwext4 mkfs
     let ret = unsafe {
         ext4_mkfs(
-            ptr::null_mut::<ext4_fs>(),
+            fs_ptr,
             bdev_ptr,
             &mut info,
             options.fs_type.to_raw(),

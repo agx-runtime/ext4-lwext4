@@ -41,6 +41,9 @@ fn main() {
         build.file(lwext4_src.join(src));
     }
 
+    // Helper functions (sizeof, etc.)
+    build.file("vendor/helpers.c");
+
     build
         .include(&lwext4_inc)
         .include(lwext4_inc.join("misc"))

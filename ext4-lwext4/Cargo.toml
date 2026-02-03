@@ -14,7 +14,7 @@ keywords = ["ext4", "ext3", "ext2", "filesystem", "embedded"]
 categories = ["filesystem", "no-std"]
 
 [dependencies]
-ext4-lwext4-sys = { version = "0.1.1", path = "../ext4-lwext4-sys" }
+ext4-lwext4-sys = { version = "0.1.2", path = "../ext4-lwext4-sys" }
 thiserror = "1.0"
 bitflags = "2.0"
 libc = "0.2"
