@@ -1,0 +1,101 @@
+From: AGX team
+Subject: [PATCH] zero every freshly-allocated noread block before use
+
+`ext4_trans_block_get_noread` hands back a buffer-cache page
+whose contents are uninitialised heap (the "noread" suffix
+means we deliberately skipped the disk read because we're
+about to overwrite the block).  Several call sites only
+write a handful of bytes into that block (a dirent header,
+an extent header, a small memmove) and then commit the
+remaining ~4 KiB of stale heap straight to disk.  Two
+consequences:
+
+  - The on-disk image is non-deterministic across rebuilds
+    with identical inputs (padding bytes vary run to run).
+  - Heap memory contents leak into the persistent
+    filesystem.
+
+The fix is mechanical and uniform: insert
+`memset(block.data, 0, block_size)` after every noread that
+isn't already followed by one.  The overhead is one 4 KiB
+memset per block-alloc — negligible compared to the cost of
+the disk write the block is about to drive.
+
+Sites touched (in this patch):
+  ext4_dir_idx.c  : htree "data block" linked from root
+  ext4_dir_idx.c  : dir-idx split target block
+  ext4_dir_idx.c  : dir-idx split level new node
+  ext4_extent.c   : extent leaf/index block during split
+  ext4_extent.c   : extent root-grow new top-level block
+
+Sites NOT touched (already zero the full block):
+  ext4_dir.c:423, ext4_dir_idx.c:372 (patch 0002),
+  ext4_extent.c:1974, ext4_fs.c:316/396/452/1542/1587.
+
+Regression test: crates/oci-converter/tests/ext4_determinism.rs
+(switched to active #[test] in the same agx-side change).
+
+---
+ src/ext4_dir_idx.c | 12 ++++++++++++
+ src/ext4_extent.c  |  6 ++++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/src/ext4_dir_idx.c b/src/ext4_dir_idx.c
+--- a/src/ext4_dir_idx.c
++++ b/src/ext4_dir_idx.c
+@@ -428,6 +428,9 @@ int ext4_dir_dx_init(struct ext4_inode_ref *dir, struct ext4_inode_ref *parent)
+ 		return rc;
+ 	}
+
++	/* AGX: zero the whole block before writing the empty dir entry. */
++	memset(new_block.data, 0, block_size);
++
+ 	/* Fill the whole block with empty entry */
+ 	struct ext4_dir_en *be = (void *)new_block.data;
+
+@@ -979,6 +982,11 @@ static int ext4_dir_dx_split_data(struct ext4_inode_ref *inode_ref,
+ 		ext4_free(entry_buffer);
+ 		return rc;
+ 	}
++	{
++		uint32_t block_size_local = ext4_sb_get_block_size(&inode_ref->fs->sb);
++		memset(new_data_block_tmp.data, 0, block_size_local);
++	}
++	/* AGX: zero the whole split-target block (was leaking heap). */
+
+ 	/*
+ 	 * Distribute entries to two blocks (by size)
+@@ -1122,6 +1130,10 @@ static int ext4_dir_dx_split_index(struct ext4_inode_ref *ino_ref,
+ 		r = ext4_trans_block_get_noread(ino_ref->fs->bdev, &b, new_fblk);
+ 		if (r != EOK)
+ 			return r;
++		{
++			uint32_t block_size_local = ext4_sb_get_block_size(&ino_ref->fs->sb);
++			memset(b.data, 0, block_size_local);
++		}
+
+ 		struct ext4_dir_idx_node *new_node = (void *)b.data;
+ 		struct ext4_dir_idx_entry *new_en = new_node->entries;
+diff --git a/src/ext4_extent.c b/src/ext4_extent.c
+--- a/src/ext4_extent.c
++++ b/src/ext4_extent.c
+@@ -1036,6 +1036,9 @@ static int ext4_ext_split_node(struct ext4_inode_ref *inode_ref,
+ 						  newblock);
+ 		if (ret != EOK)
+ 			goto cleanup;
++		/* AGX: zero the whole block before partial-write below. */
++		memset(bh.data, 0,
++		       ext4_sb_get_block_size(&inode_ref->fs->sb));
+
+ 		if (i == depth) {
+ 			/* start copy from next extent */
+@@ -1379,6 +1382,9 @@ static int ext4_ext_grow_indepth(struct ext4_inode_ref *inode_ref,
+ 		ext4_ext_free_blocks(inode_ref, newblock, 1, 0);
+ 		return err;
+ 	}
++	/* AGX: zero the whole block before partial memmove below. */
++	memset(bh.data, 0,
++	       ext4_sb_get_block_size(&inode_ref->fs->sb));
+
+ 	/* move top-level index/leaf into new block */
+ 	memmove(bh.data, inode_ref->inode->blocks,
