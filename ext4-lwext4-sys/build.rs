@@ -1,32 +1,22 @@
 use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::PathBuf;
 
 fn main() {
-    // Stage upstream lwext4 (`vendor/lwext4`, a real submodule
-    // pointing at gkostka/lwext4) into the build OUT_DIR, then
-    // apply our patches/ directory on top. Compiling out of
-    // OUT_DIR keeps the submodule pristine and lets developers
-    // run `git diff` against upstream cleanly.
-    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR set by cargo"));
-    let staged = out_dir.join("lwext4-staged");
-    if staged.exists() {
-        fs::remove_dir_all(&staged).expect("clean staging dir");
+    // The vendored lwext4 source lives directly under
+    // `vendor/lwext4/`. This is the agx-ext4-lwext4 fork, so
+    // any AGX-specific fixes are checked into the tracked
+    // source — `git diff` against upstream gkostka/lwext4 is
+    // the authoritative changelog. There's no longer a
+    // separate `patches/` step (was carried for a brief
+    // window when vendor/ was a nested submodule pointing
+    // upstream).
+    let lwext4_root = PathBuf::from("vendor/lwext4");
+    if !lwext4_root.join("src/ext4_mkfs.c").exists() {
+        panic!("ext4-lwext4-sys: vendor/lwext4/src/ext4_mkfs.c not found in repo");
     }
-    let upstream_root = PathBuf::from("vendor/lwext4");
-    if !upstream_root.join("src/ext4_mkfs.c").exists() {
-        panic!(
-            "ext4-lwext4-sys: vendor/lwext4 submodule not initialized. \
-             Run `git submodule update --init --recursive` (the parent \
-             agx-ext4-lwext4 repo pins this to gkostka/lwext4@58bcf89)."
-        );
-    }
-    copy_dir(&upstream_root, &staged);
-    apply_patches(&staged);
 
-    let lwext4_src = staged.join("src");
-    let lwext4_inc = staged.join("include");
+    let lwext4_src = lwext4_root.join("src");
+    let lwext4_inc = lwext4_root.join("include");
 
     // Core source files (BSD-3-Clause / MIT OR Apache-2.0 compatible)
     let mut sources = vec![
@@ -90,77 +80,4 @@ fn main() {
 
     println!("cargo:rerun-if-changed=vendor/lwext4/src");
     println!("cargo:rerun-if-changed=vendor/lwext4/include");
-    println!("cargo:rerun-if-changed=patches");
-}
-
-/// Recursive copy. Skips `.git` directories so the submodule
-/// metadata doesn't end up in OUT_DIR.
-fn copy_dir(src: &Path, dst: &Path) {
-    fs::create_dir_all(dst).expect("create staged dir");
-    for entry in fs::read_dir(src).expect("read upstream dir") {
-        let entry = entry.expect("dir entry");
-        let name = entry.file_name();
-        if name == ".git" {
-            continue;
-        }
-        let from = entry.path();
-        let to = dst.join(&name);
-        let ft = entry.file_type().expect("file type");
-        if ft.is_dir() {
-            copy_dir(&from, &to);
-        } else if ft.is_symlink() {
-            // Realise symlinks in case the patch needs to
-            // operate on a regular file.
-            let target = fs::read_link(&from).expect("read link");
-            let resolved = if target.is_absolute() {
-                target
-            } else {
-                from.parent().unwrap().join(&target)
-            };
-            fs::copy(&resolved, &to).expect("copy symlink target");
-        } else {
-            fs::copy(&from, &to).expect("copy file");
-        }
-    }
-}
-
-/// Apply every `*.patch` under `patches/` (sorted by name) to
-/// the staged source via `patch -p1`. The patches live OUTSIDE
-/// the submodule so the submodule stays pristine — diff'ing
-/// our fork against upstream is just `ls patches/`.
-fn apply_patches(staged: &Path) {
-    let patches_dir = PathBuf::from("patches");
-    if !patches_dir.exists() {
-        return;
-    }
-    let mut entries: Vec<_> = fs::read_dir(&patches_dir)
-        .expect("read patches dir")
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .map(|x| x == "patch")
-                .unwrap_or(false)
-        })
-        .collect();
-    entries.sort_by_key(|e| e.file_name());
-    for entry in entries {
-        let patch = entry.path();
-        let abs_patch = patch
-            .canonicalize()
-            .expect("canonicalize patch path");
-        let status = Command::new("patch")
-            .arg("-p1")
-            .arg("-i")
-            .arg(&abs_patch)
-            .current_dir(staged)
-            .status()
-            .expect("spawn patch(1)");
-        if !status.success() {
-            panic!(
-                "ext4-lwext4-sys: failed to apply {}: patch exited with {status}",
-                patch.display()
-            );
-        }
-    }
 }
