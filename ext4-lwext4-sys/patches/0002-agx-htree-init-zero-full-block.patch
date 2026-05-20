@@ -1,0 +1,42 @@
+From: AGX team
+Subject: [PATCH] htree-init: zero the full block, not just the root struct
+
+ext4_dir_dx_init() partial-memsets the htree root struct (~32 bytes)
+inside a freshly-allocated 4 KiB buffer that comes from
+ext4_trans_block_get_noread().  The buffer cache hands back
+uninitialised heap memory, so the htree padding (bytes past the
+root struct, before the dx_entry array fills) goes to disk
+verbatim, carrying stale bytes.
+
+That makes the on-disk image non-deterministic across identical
+mounts and also leaks heap contents into the persistent filesystem.
+Zeroing the full block before writing the dot entries / climit
+costs one extra 4 KiB memset per directory and closes both
+issues.
+
+Regression test: crates/oci-converter/tests/ext4_determinism.rs
+(currently ignored — more partial-memsets remain in lwext4).
+
+---
+ src/ext4_dir_idx.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/ext4_dir_idx.c b/src/ext4_dir_idx.c
+--- a/src/ext4_dir_idx.c
++++ b/src/ext4_dir_idx.c
+@@ -377,7 +377,14 @@ int ext4_dir_dx_init(struct ext4_inode_ref *dir, struct ext4_inode_ref *parent)
+ 	struct ext4_dir_idx_root *root = (void *)block.data;
+ 	struct ext4_dir_idx_rinfo *info = &(root->info);
+
+-	memset(root, 0, sizeof(struct ext4_dir_idx_root));
++	/* Zero the whole block, not just the header. The buffer
++	 * returned by ext4_trans_block_get_noread is uninitialised
++	 * heap memory; the htree padding after the dot entries and
++	 * the climit/info structs would otherwise carry stale
++	 * bytes into the on-disk image. That makes the output
++	 * non-deterministic across identical converts — see AGX
++	 * T3-3 regression in `tests/ext4_determinism.rs`. */
++	memset(root, 0, block_size);
+ 	struct ext4_dir_en *de;
+
+ 	/* Initialize dot entries */
