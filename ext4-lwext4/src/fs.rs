@@ -10,7 +10,8 @@ use ext4_lwext4_sys::{
     ext4_dir_mk, ext4_dir_rm, ext4_flink, ext4_fremove, ext4_frename, ext4_fsymlink,
     ext4_inode_exist, ext4_journal_start, ext4_journal_stop, ext4_mode_get, ext4_mode_set,
     ext4_mount, ext4_mount_point_stats, ext4_mount_stats, ext4_mtime_get, ext4_owner_get,
-    ext4_owner_set, ext4_readlink, ext4_recover, ext4_umount,
+    ext4_atime_set, ext4_ctime_set, ext4_mtime_set, ext4_owner_set, ext4_readlink, ext4_recover,
+    ext4_umount,
 };
 use std::ffi::{c_char, CStr, CString};
 use std::pin::Pin;
@@ -405,6 +406,23 @@ impl Ext4Fs {
 
         let full_path = self.make_path(path)?;
         let ret = unsafe { ext4_owner_set(full_path.as_ptr(), uid, gid) };
+        check_errno_with_path(ret, path)
+    }
+
+    /// Set a file's timestamps (seconds since the epoch — ext4's inode
+    /// fields are 32-bit). Deterministic image builders set all three so two
+    /// conversions of the same input produce identical bytes.
+    pub fn set_times(&self, path: &str, atime: u32, mtime: u32, ctime: u32) -> Result<()> {
+        if self.read_only {
+            return Err(Error::ReadOnly);
+        }
+
+        let full_path = self.make_path(path)?;
+        let ret = unsafe { ext4_atime_set(full_path.as_ptr(), atime) };
+        check_errno_with_path(ret, path)?;
+        let ret = unsafe { ext4_mtime_set(full_path.as_ptr(), mtime) };
+        check_errno_with_path(ret, path)?;
+        let ret = unsafe { ext4_ctime_set(full_path.as_ptr(), ctime) };
         check_errno_with_path(ret, path)
     }
 
