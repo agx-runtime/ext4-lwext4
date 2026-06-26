@@ -16,9 +16,41 @@ use ext4_lwext4_sys::{
 use std::ffi::{c_char, CStr, CString};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, MutexGuard};
 
 // Counter for generating unique device names
 static DEVICE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+// Process-wide serializer for mount/umount. lwext4's C library
+// holds the registry of mounted devices + mountpoints in fixed-size
+// static arrays:
+//
+//   static struct ext4_block_devices s_bdevices[CONFIG_EXT4_BLOCKDEVS_COUNT];
+//   static struct ext4_mountpoint    s_mp[CONFIG_EXT4_MOUNTPOINTS_COUNT];
+//
+// `ext4_device_register` and `ext4_mount` each walk their array to
+// find an empty slot, then write into it — non-atomic across two
+// concurrent callers. Without serialization, two threads racing
+// `mount()` can pick the same slot and clobber each other (the
+// observed symptom is the loser's mkfs erroring "no space left on
+// device", or stranger silent slot sharing). `umount` clears the
+// slot symmetrically and races the same way.
+//
+// We serialize only the mount/umount windows; once mounted, the
+// slot pointer is stable and operations on a mounted FS proceed
+// in parallel against their own slot. This narrows the scope as
+// far as the C library's slot-allocator allows.
+static MOUNT_GATE: Mutex<()> = Mutex::new(());
+
+fn acquire_mount_gate() -> MutexGuard<'static, ()> {
+    // Poison recovery: a previous caller panicked mid-mount. The C
+    // library's static arrays may have a half-written slot, but the
+    // Ext4Fs that owned the slot was dropped and its umount ran
+    // through Drop, clearing the slot. Read past the poison.
+    MOUNT_GATE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 /// An ext4 filesystem instance.
 ///
@@ -70,6 +102,11 @@ impl Ext4Fs {
     /// # Returns
     /// A mounted `Ext4Fs` instance
     pub fn mount<B: BlockDevice + 'static>(device: B, read_only: bool) -> Result<Self> {
+        // Hold the process-wide mount gate across the
+        // register+mount+journal-start window. See MOUNT_GATE above
+        // for the C-library-static-arrays rationale.
+        let _gate = acquire_mount_gate();
+
         // Generate unique device and mount point names
         let id = DEVICE_COUNTER.fetch_add(1, Ordering::SeqCst);
         let device_name = CString::new(format!("ext4dev{}", id)).unwrap();
@@ -117,6 +154,11 @@ impl Ext4Fs {
     ///
     /// This flushes all pending writes and releases the block device.
     pub fn umount(self) -> Result<()> {
+        // Hold the process-wide mount gate across the symmetric
+        // umount+unregister window — clearing the C library's
+        // slots is the same race shape as mount's allocation.
+        let _gate = acquire_mount_gate();
+
         // Stop journaling if active
         if self.journal_active {
             unsafe { ext4_journal_stop(self.mount_point.as_ptr()) };
@@ -435,6 +477,11 @@ impl Ext4Fs {
 
 impl Drop for Ext4Fs {
     fn drop(&mut self) {
+        // Same gate as the explicit `umount` — Drop runs in the
+        // panic path too, and a parallel mount must not race the
+        // slot clear.
+        let _gate = acquire_mount_gate();
+
         // Note: We can't return errors from drop, so we just try our best
         if self.journal_active {
             unsafe { ext4_journal_stop(self.mount_point.as_ptr()) };
