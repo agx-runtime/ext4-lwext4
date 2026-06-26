@@ -21,25 +21,30 @@ use std::sync::{Mutex, MutexGuard};
 // Counter for generating unique device names
 static DEVICE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-// Process-wide serializer for mount/umount. lwext4's C library
-// holds the registry of mounted devices + mountpoints in fixed-size
-// static arrays:
+// Process-wide serializer enforcing "one Ext4Fs active per process."
+// The lwext4 C library carries process-global state in numerous
+// places beyond the obvious slot arrays:
 //
 //   static struct ext4_block_devices s_bdevices[CONFIG_EXT4_BLOCKDEVS_COUNT];
 //   static struct ext4_mountpoint    s_mp[CONFIG_EXT4_MOUNTPOINTS_COUNT];
 //
-// `ext4_device_register` and `ext4_mount` each walk their array to
-// find an empty slot, then write into it — non-atomic across two
-// concurrent callers. Without serialization, two threads racing
-// `mount()` can pick the same slot and clobber each other (the
-// observed symptom is the loser's mkfs erroring "no space left on
-// device", or stranger silent slot sharing). `umount` clears the
-// slot symmetrically and races the same way.
+// plus block caches, journal buffers, and write allocators internal
+// to lwext4's source. A narrow lock around only mount/umount left
+// the in-between operations racing those shared structures (observed:
+// `ext4_recover` reporting ENOSPC against a freshly-mkfs'd image
+// when another thread had operations in flight).
 //
-// We serialize only the mount/umount windows; once mounted, the
-// slot pointer is stable and operations on a mounted FS proceed
-// in parallel against their own slot. This narrows the scope as
-// far as the C library's slot-allocator allows.
+// The honest stance: lwext4 wasn't designed for parallel use, so
+// we hold the gate for the FULL lifetime of an `Ext4Fs` handle.
+// `Ext4Fs::mount` returns a value carrying the guard; only one
+// `Ext4Fs` may exist per process at a time, second `mount()` calls
+// from other threads block until the existing one is dropped.
+//
+// This pushes the constraint to the API where it actually lives:
+// embedders see "build an Ext4Fs, do your work, drop it" as a
+// natural serialized window, and the engine's image-import path
+// + the in-tree tests + downstream consumers all share one source
+// of truth.
 static MOUNT_GATE: Mutex<()> = Mutex::new(());
 
 fn acquire_mount_gate() -> MutexGuard<'static, ()> {
@@ -90,6 +95,12 @@ pub struct Ext4Fs {
     read_only: bool,
     /// Whether journal is active
     journal_active: bool,
+    /// The process-wide MOUNT_GATE guard — held for this `Ext4Fs`'s
+    /// entire lifetime, released on Drop. See MOUNT_GATE above.
+    /// `Option` so we can `take()` and explicitly drop it inside
+    /// `umount()` after the C teardown, before `Self` itself drops.
+    #[allow(dead_code)]
+    gate: Option<MutexGuard<'static, ()>>,
 }
 
 impl Ext4Fs {
@@ -102,10 +113,12 @@ impl Ext4Fs {
     /// # Returns
     /// A mounted `Ext4Fs` instance
     pub fn mount<B: BlockDevice + 'static>(device: B, read_only: bool) -> Result<Self> {
-        // Hold the process-wide mount gate across the
-        // register+mount+journal-start window. See MOUNT_GATE above
-        // for the C-library-static-arrays rationale.
-        let _gate = acquire_mount_gate();
+        // Acquire the process-wide gate for the FULL lifetime of this
+        // Ext4Fs. The C library's internal state (block cache, journal
+        // buffers, write allocators) races even between mount and
+        // umount, not just at slot allocation, so only one Ext4Fs may
+        // be active per process.
+        let gate = acquire_mount_gate();
 
         // Generate unique device and mount point names
         let id = DEVICE_COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -147,17 +160,18 @@ impl Ext4Fs {
             mount_point,
             read_only,
             journal_active,
+            gate: Some(gate),
         })
     }
 
     /// Unmount the filesystem.
     ///
     /// This flushes all pending writes and releases the block device.
-    pub fn umount(self) -> Result<()> {
-        // Hold the process-wide mount gate across the symmetric
-        // umount+unregister window — clearing the C library's
-        // slots is the same race shape as mount's allocation.
-        let _gate = acquire_mount_gate();
+    pub fn umount(mut self) -> Result<()> {
+        // The gate is still held from mount(); we'll release it after
+        // the C teardown completes (just before `self` drops). Don't
+        // re-acquire — that would be a re-entrant lock on a non-
+        // reentrant Mutex (instant deadlock).
 
         // Stop journaling if active
         if self.journal_active {
@@ -174,6 +188,17 @@ impl Ext4Fs {
         // Unregister device
         let ret = unsafe { ext4_device_unregister(self.device_name.as_ptr()) };
         check_errno(ret)?;
+
+        // Release the gate explicitly here so the Drop path (which
+        // also runs as self goes out of scope) doesn't re-call the
+        // C teardown — take() leaves gate=None, and Drop checks for
+        // that.
+        let _ = self.gate.take();
+        // Mark journal+device names so Drop knows there's nothing
+        // left to do.
+        self.journal_active = false;
+        self.device_name = CString::new("").unwrap();
+        self.mount_point = CString::new("").unwrap();
 
         Ok(())
     }
@@ -477,12 +502,15 @@ impl Ext4Fs {
 
 impl Drop for Ext4Fs {
     fn drop(&mut self) {
-        // Same gate as the explicit `umount` — Drop runs in the
-        // panic path too, and a parallel mount must not race the
-        // slot clear.
-        let _gate = acquire_mount_gate();
-
-        // Note: We can't return errors from drop, so we just try our best
+        // If `umount()` already ran successfully, `gate` is None and
+        // there's nothing left to do — bail. The explicit path
+        // already did the C teardown.
+        if self.gate.is_none() {
+            return;
+        }
+        // Implicit Drop (no explicit umount): we still hold the gate
+        // from mount(); the C teardown is safe with no re-acquisition.
+        // Note: We can't return errors from drop, so we try our best.
         if self.journal_active {
             unsafe { ext4_journal_stop(self.mount_point.as_ptr()) };
         }
@@ -491,5 +519,6 @@ impl Drop for Ext4Fs {
             ext4_umount(self.mount_point.as_ptr());
             ext4_device_unregister(self.device_name.as_ptr());
         }
+        // Release the gate as `self.gate` drops with self.
     }
 }
